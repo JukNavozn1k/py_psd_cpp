@@ -8,7 +8,7 @@
 #include <functional>  // Добавлен для std::function
 #include <memory>      // Добавлен для std::unordered_set
 
-constexpr PrimeInt MAX_VAL = 2147483647;
+constexpr PrimeInt MAX_VAL = 18446744073709551615;
 
 class PrimeException : public std::exception {
 public:
