@@ -5,8 +5,8 @@
 #include <cmath>
 #include <algorithm>
 #include <unordered_set>
-#include <functional>  // Добавлен для std::function
-#include <memory>      // Добавлен для std::unordered_set
+#include <functional>  
+#include <memory>    
 
 constexpr PrimeInt MAX_VAL = 2147483647;
 
