@@ -1,234 +1,208 @@
 ﻿#include "PrimeLib.h"
 #include <vector>
-#include <stdexcept>
 #include <string>
-#include <cmath>
 #include <algorithm>
-#include <unordered_set>
-#include <functional>  
-#include <memory>    
+#include <stdexcept>
+#include <sstream>
 
-constexpr PrimeInt MAX_VAL = 2147483647;
+using namespace std;
 
-class PrimeException : public std::exception {
+class PrimeException : public exception {
+    string msg_;
 public:
-    virtual PrimeErrorCode GetErrorCode() const = 0;
-};
-
-class NegativeNumberError : public PrimeException {
-public:
-    PrimeErrorCode GetErrorCode() const override { return PRIME_NEGATIVE_NUMBER_ERROR; }
+    PrimeException(const string& msg) : msg_(msg) {}
+    const char* what() const noexcept override { return msg_.c_str(); }
 };
 
 class InvalidInputError : public PrimeException {
 public:
-    PrimeErrorCode GetErrorCode() const override { return PRIME_INVALID_INPUT_ERROR; }
+    InvalidInputError(const string& msg) : PrimeException(msg) {}
 };
-
 class NumberTooLargeError : public PrimeException {
 public:
-    PrimeErrorCode GetErrorCode() const override { return PRIME_NUMBER_TOO_LARGE_ERROR; }
+    NumberTooLargeError(const string& msg) : PrimeException(msg) {}
 };
 
-class UndefinedError : public PrimeException {
-public:
-    PrimeErrorCode GetErrorCode() const override { return PRIME_UNDEFINED_ERROR; }
-};
-
-void ValidatePositive(PrimeInt n, const std::string& operation) {
-    if (n < 0) {
-        throw NegativeNumberError();
-    }
-    if (n > MAX_VAL) {
-        throw NumberTooLargeError();
-    }
+// Validation helper
+void validate(uint64_t n, const string& op) {
+    if (op == "factorization" && n == 0)
+        throw InvalidInputError("Cannot factorize zero");
+    if (n > MAX_VAL)
+        throw NumberTooLargeError("Number exceeds maximum allowed value");
 }
 
-bool IsPrimeImpl(PrimeInt n) {
+// Prime checking implementation
+bool is_prime_impl(uint64_t n) {
     if (n <= 1) return false;
     if (n <= 3) return true;
     if (n % 2 == 0 || n % 3 == 0) return false;
-    PrimeInt i = 5;
-    PrimeInt w = 2;
-    while (i * i <= n) {
-        if (n % i == 0) return false;
-        i += w;
-        w = 6 - w;
-    }
+    for (uint64_t i = 5; i * i <= n; i += 6)
+        if (n % i == 0 || n % (i + 2) == 0)
+            return false;
     return true;
 }
 
-std::vector<PrimeInt> PrimeFactorsImpl(PrimeInt n) {
-    ValidatePositive(n, "prime factorization");
-    if (n == 0) {
-        throw InvalidInputError();
-    }
-    std::vector<PrimeInt> factors;
-    for (PrimeInt divisor : {2, 3}) {
-        while (n % divisor == 0) {
-            factors.push_back(divisor);
-            n /= divisor;
-        }
-    }
-    PrimeInt i = 5;
-    PrimeInt w = 2;
-    while (i * i <= n) {
-        while (n % i == 0) {
-            factors.push_back(i);
-            n /= i;
-        }
-        i += w;
-        w = 6 - w;
-    }
-    if (n > 1) {
-        factors.push_back(n);
-    }
-    return factors;
-}
-
-PrimeInt GCDImpl(PrimeInt a, PrimeInt b) {
-    ValidatePositive(a, "GCD");
-    ValidatePositive(b, "GCD");
-    if (a == 0 && b == 0) {
-        throw InvalidInputError();
-    }
+// GCD implementation
+uint64_t gcd_impl(uint64_t a, uint64_t b) {
     while (b != 0) {
-        PrimeInt temp = b;
+        uint64_t t = b;
         b = a % b;
-        a = temp;
+        a = t;
     }
     return a;
 }
 
-PrimeInt LCMImpl(PrimeInt a, PrimeInt b) {
-    ValidatePositive(a, "LCM");
-    ValidatePositive(b, "LCM");
-    if (a == 0 || b == 0) {
-        throw InvalidInputError();
-    }
-    return (a / GCDImpl(a, b)) * b;
-}
-
-std::vector<PrimeInt> SieveOfEratosthenesImpl(PrimeInt limit) {
-    ValidatePositive(limit, "sieve of Eratosthenes");
-    if (limit < 2) {
-        return {};
-    }
-    std::vector<bool> sieve(limit + 1, true);
+// Sieve implementation
+vector<uint64_t> sieve_impl(uint64_t limit) {
+    vector<bool> sieve(limit + 1, true);
     sieve[0] = sieve[1] = false;
-    for (PrimeInt num = 2; num * num <= limit; ++num) {
-        if (sieve[num]) {
-            for (PrimeInt multiple = num * num; multiple <= limit; multiple += num) {
-                sieve[multiple] = false;
-            }
-        }
-    }
-    std::vector<PrimeInt> primes;
-    for (PrimeInt num = 2; num <= limit; ++num) {
-        if (sieve[num]) {
-            primes.push_back(num);
-        }
-    }
+    for (uint64_t i = 2; i * i <= limit; ++i)
+        if (sieve[i])
+            for (uint64_t j = i * i; j <= limit; j += i)
+                sieve[j] = false;
+
+    vector<uint64_t> primes;
+    for (uint64_t i = 2; i <= limit; ++i)
+        if (sieve[i]) primes.push_back(i);
     return primes;
 }
 
-std::vector<PrimeInt> GoldbachConjectureImpl(PrimeInt n) {
-    ValidatePositive(n, "Goldbach conjecture");
-    if (n <= 2) {
-        throw InvalidInputError();
-    }
-    if (n % 2 != 0) {
-        throw InvalidInputError();
-    }
-    auto primes = SieveOfEratosthenesImpl(n);
-    std::unordered_set<PrimeInt> primeSet(primes.begin(), primes.end());
-    for (PrimeInt p : primes) {
-        if (p > n / 2) {
-            break;
-        }
-        if (primeSet.find(n - p) != primeSet.end()) {
+// Goldbach conjecture implementation
+vector<uint64_t> goldbach_impl(uint64_t n) {
+    if (n <= 2 || n % 2 != 0)
+        throw InvalidInputError("Number must be even and > 2");
+
+    auto primes = sieve_impl(n);
+    for (auto p : primes)
+        if (is_prime_impl(n - p))
             return { p, n - p };
-        }
-    }
     return {};
 }
 
-PrimeErrorCode HandleExceptions(std::function<void()> func) {
-    try {
-        func();
-        return PRIME_NO_ERROR;
-    }
-    catch (const NegativeNumberError&) {
-        return PRIME_NEGATIVE_NUMBER_ERROR;
-    }
-    catch (const InvalidInputError&) {
-        return PRIME_INVALID_INPUT_ERROR;
-    }
-    catch (const NumberTooLargeError&) {
-        return PRIME_NUMBER_TOO_LARGE_ERROR;
-    }
-    catch (const PrimeException&) {
-        return PRIME_UNDEFINED_ERROR;
-    }
-    catch (...) {
-        return PRIME_UNDEFINED_ERROR;
-    }
-}
-
-PRIMELIB_API PrimeErrorCode IsPrime(PrimeInt n, bool* result) {
-    return HandleExceptions([&]() {
-        ValidatePositive(n, "primality test");
-        *result = IsPrimeImpl(n);
-        });
-}
-
-PRIMELIB_API PrimeErrorCode PrimeFactors(PrimeInt n, PrimeIntArray* result) {
-    return HandleExceptions([&]() {
-        auto factors = PrimeFactorsImpl(n);
-        result->data = new PrimeInt[factors.size()];
-        result->length = static_cast<int>(factors.size());
-        std::copy(factors.begin(), factors.end(), result->data);
-        });
-}
-
-PRIMELIB_API PrimeErrorCode GCD(PrimeInt a, PrimeInt b, PrimeInt* result) {
-    return HandleExceptions([&]() {
-        *result = GCDImpl(a, b);
-        });
-}
-
-PRIMELIB_API PrimeErrorCode LCM(PrimeInt a, PrimeInt b, PrimeInt* result) {
-    return HandleExceptions([&]() {
-        *result = LCMImpl(a, b);
-        });
-}
-
-PRIMELIB_API PrimeErrorCode SieveOfEratosthenes(PrimeInt limit, PrimeIntArray* result) {
-    return HandleExceptions([&]() {
-        auto primes = SieveOfEratosthenesImpl(limit);
-        result->data = new PrimeInt[primes.size()];
-        result->length = static_cast<int>(primes.size());
-        std::copy(primes.begin(), primes.end(), result->data);
-        });
-}
-
-PRIMELIB_API PrimeErrorCode GoldbachConjecture(PrimeInt n, PrimeIntArray* result) {
-    return HandleExceptions([&]() {
-        auto pair = GoldbachConjectureImpl(n);
-        if (pair.size() != 2) {
-            throw InvalidInputError();
+// Prime factors implementation
+vector<uint64_t> prime_factors_impl(uint64_t n) {
+    vector<uint64_t> factors;
+    for (uint64_t d : {2, 3}) {
+        while (n % d == 0) {
+            factors.push_back(d);
+            n /= d;
         }
-        result->data = new PrimeInt[2];
-        result->length = 2;
-        result->data[0] = pair[0];
-        result->data[1] = pair[1];
-        });
+    }
+    for (uint64_t i = 5; i * i <= n; i += 6) {
+        while (n % i == 0) {
+            factors.push_back(i);
+            n /= i;
+        }
+        uint64_t next = i + 2;
+        while (n % next == 0) {
+            factors.push_back(next);
+            n /= next;
+        }
+    }
+    if (n > 1) factors.push_back(n);
+    return factors;
 }
 
-PRIMELIB_API void FreePrimeIntArray(PrimeIntArray* array) {
-    if (array != nullptr) {
-        delete[] array->data;
-        array->data = nullptr;
-        array->length = 0;
+// Fermat test implementation
+uint64_t mod_pow(uint64_t base, uint64_t exp, uint64_t mod) {
+    uint64_t result = 1;
+    base %= mod;
+    while (exp > 0) {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+        exp >>= 1;
+        base = (base * base) % mod;
     }
+    return result;
+}
+
+bool ferma_test_impl(uint64_t n) {
+    if (n <= 1) return false;
+    for (uint64_t a : {2, 3, 5, 7}) {
+        if (a >= n) continue;
+        if (mod_pow(a, n - 1, n) != 1)
+            return false;
+    }
+    return true;
+}
+
+// Wrapper functions
+#define WRAP(f) try { validate(n, #f); *result = f##_impl(n); return true; } \
+catch (const PrimeException& e) { *error = e.what(); return false; } \
+catch (...) { *error = "Unknown error"; return false; }
+
+extern "C" {
+    bool is_prime(uint64_t n, bool* result, const char** error) WRAP(is_prime)
+
+        bool gcd(uint64_t a, uint64_t b, uint64_t* result, const char** error) {
+        try {
+            validate(a, "gcd"); validate(b, "gcd");
+            *result = gcd_impl(a, b);
+            return true;
+        }
+        catch (...) { *error = "GCD error"; return false; }
+    }
+
+    bool lcm(uint64_t a, uint64_t b, uint64_t* result, const char** error) {
+        try {
+            validate(a, "lcm"); validate(b, "lcm");
+            *result = a / gcd_impl(a, b) * b;
+            return true;
+        }
+        catch (...) { *error = "LCM error"; return false; }
+    }
+
+    bool sieve_of_eratosthenes(uint64_t limit, uint64_t** primes, size_t* count, const char** error) {
+        try {
+            validate(limit, "sieve");
+            auto vec = sieve_impl(limit);
+            *primes = new uint64_t[vec.size()];
+            copy(vec.begin(), vec.end(), *primes);
+            *count = vec.size();
+            return true;
+        }
+        catch (const PrimeException& e) { *error = e.what(); return false; }
+        catch (...) { *error = "Sieve error"; return false; }
+    }
+
+    bool goldbach_conjecture(uint64_t n, uint64_t** pair, size_t* count, const char** error) {
+        try {
+            validate(n, "goldbach");
+            auto vec = goldbach_impl(n);
+            if (vec.empty()) throw PrimeException("No pair found");
+            *pair = new uint64_t[vec.size()];
+            copy(vec.begin(), vec.end(), *pair);
+            *count = vec.size();
+            return true;
+        }
+        catch (const PrimeException& e) { *error = e.what(); return false; }
+        catch (...) { *error = "Goldbach error"; return false; }
+    }
+
+    bool prime_factors(uint64_t n, uint64_t** factors, size_t* count, const char** error) {
+        try {
+            validate(n, "factorization");
+            auto vec = prime_factors_impl(n);
+            *factors = new uint64_t[vec.size()];
+            copy(vec.begin(), vec.end(), *factors);
+            *count = vec.size();
+            return true;
+        }
+        catch (const PrimeException& e) { *error = e.what(); return false; }
+        catch (...) { *error = "Factorization error"; return false; }
+    }
+
+    bool prime_count(uint64_t n, uint64_t* count, const char** error) {
+        try {
+            validate(n, "prime_count");
+            *count = sieve_impl(n).size();
+            return true;
+        }
+        catch (const PrimeException& e) { *error = e.what(); return false; }
+        catch (...) { *error = "Count error"; return false; }
+    }
+
+    bool ferma_test(uint64_t n, bool* result, const char** error) WRAP(ferma_test)
+
+        void free_array(uint64_t* array) { delete[] array; }
 }

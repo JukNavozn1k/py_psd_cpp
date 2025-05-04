@@ -1,39 +1,28 @@
-#ifdef PRIMELIB_EXPORTS
-#define PRIMELIB_API __declspec(dllexport)
-#else
-#define PRIMELIB_API __declspec(dllimport)
-#endif
-
+#pragma once
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-    typedef int64_t PrimeInt;
+#define MAX_VAL 18446744073709551615ULL
 
-    enum PrimeErrorCode {
-        PRIME_NO_ERROR = 0,
-        PRIME_NEGATIVE_NUMBER_ERROR,
-        PRIME_INVALID_INPUT_ERROR,
-        PRIME_NUMBER_TOO_LARGE_ERROR,
-        PRIME_UNDEFINED_ERROR,
-        PRIME_INVALID_INPUT_ZERO_ERROR,
-        PRIME_GOLDBACH_INVALID_INPUT_ERROR
-    };
+	// Basic arithmetic functions
+	extern __declspec(dllexport) bool is_prime(uint64_t n, bool* result, const char** error);
+	extern __declspec(dllexport) bool gcd(uint64_t a, uint64_t b, uint64_t* result, const char** error);
+	extern __declspec(dllexport) bool lcm(uint64_t a, uint64_t b, uint64_t* result, const char** error);
 
-    typedef struct {
-        PrimeInt* data;
-        int length;
-    } PrimeIntArray;
+	// Sieve and number theory
+	extern __declspec(dllexport) bool sieve_of_eratosthenes(uint64_t limit, uint64_t** primes, size_t* count, const char** error);
+	extern __declspec(dllexport) bool goldbach_conjecture(uint64_t n, uint64_t** pair, size_t* count, const char** error);
+	extern __declspec(dllexport) bool prime_factors(uint64_t n, uint64_t** factors, size_t* count, const char** error);
+	extern __declspec(dllexport) bool prime_count(uint64_t n, uint64_t* count, const char** error);
+	extern __declspec(dllexport) bool ferma_test(uint64_t n, bool* result, const char** error);
 
-    PRIMELIB_API PrimeErrorCode IsPrime(PrimeInt n, bool* result);
-    PRIMELIB_API PrimeErrorCode PrimeFactors(PrimeInt n, PrimeIntArray* result);
-    PRIMELIB_API PrimeErrorCode GCD(PrimeInt a, PrimeInt b, PrimeInt* result);
-    PRIMELIB_API PrimeErrorCode LCM(PrimeInt a, PrimeInt b, PrimeInt* result);
-    PRIMELIB_API PrimeErrorCode SieveOfEratosthenes(PrimeInt limit, PrimeIntArray* result);
-    PRIMELIB_API PrimeErrorCode GoldbachConjecture(PrimeInt n, PrimeIntArray* result);
-    PRIMELIB_API void FreePrimeIntArray(PrimeIntArray* array);
+	// Memory management
+	extern __declspec(dllexport) void free_array(uint64_t* array);
 
 #ifdef __cplusplus
 }
