@@ -131,7 +131,7 @@
     <ClInclude Include="PrimeLib.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="PrimeLib.cpp" />
+    <ClCompile Include="PrimeLib.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

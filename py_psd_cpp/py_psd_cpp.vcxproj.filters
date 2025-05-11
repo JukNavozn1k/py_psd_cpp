@@ -20,7 +20,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="PrimeLib.cpp">
+    <ClCompile Include="PrimeLib.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

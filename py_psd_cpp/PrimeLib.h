@@ -1,29 +1,43 @@
-#pragma once
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
+#ifndef PRIME_LIB_H
+#define PRIME_LIB_H
+
+#define MAX_VAL 1000000
+
+typedef enum {
+    PRIME_OK = 0,
+    ERR_NEGATIVE,
+    ERR_INVALID_INPUT,
+    ERR_TOO_LARGE,
+    ERR_UNKNOWN
+} PrimeError;
+
+typedef struct {
+    int* data;
+    int length;
+    PrimeError error;
+} IntArrayResult;
+
+typedef struct {
+    int result;
+    PrimeError error;
+} IntResult;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MAX_VAL 18446744073709551615ULL
-
-	// Basic arithmetic functions
-	extern __declspec(dllexport) bool is_prime(uint64_t n, bool* result, const char** error);
-	extern __declspec(dllexport) bool gcd(uint64_t a, uint64_t b, uint64_t* result, const char** error);
-	extern __declspec(dllexport) bool lcm(uint64_t a, uint64_t b, uint64_t* result, const char** error);
-
-	// Sieve and number theory
-	extern __declspec(dllexport) bool sieve_of_eratosthenes(uint64_t limit, uint64_t** primes, size_t* count, const char** error);
-	extern __declspec(dllexport) bool goldbach_conjecture(uint64_t n, uint64_t** pair, size_t* count, const char** error);
-	extern __declspec(dllexport) bool prime_factors(uint64_t n, uint64_t** factors, size_t* count, const char** error);
-	extern __declspec(dllexport) bool prime_count(uint64_t n, uint64_t* count, const char** error);
-	extern __declspec(dllexport) bool ferma_test(uint64_t n, bool* result, const char** error);
-
-	// Memory management
-	extern __declspec(dllexport) void free_array(uint64_t* array);
+    __declspec(dllexport) void free_array(int* arr);
+    __declspec(dllexport) IntResult is_prime(int n);
+    __declspec(dllexport) IntResult gcd(int a, int b);
+    __declspec(dllexport) IntResult lcm(int a, int b);
+    __declspec(dllexport) IntArrayResult sieve_of_eratosthenes(int limit);
+    __declspec(dllexport) IntArrayResult goldbach_conjecture(int n);
+    __declspec(dllexport) IntArrayResult prime_factors(int n);
+    __declspec(dllexport) IntResult prime_count(int n);
+    __declspec(dllexport) IntResult ferma_test(int n);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
