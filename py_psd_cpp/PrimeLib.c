@@ -1,171 +1,156 @@
-﻿#include <stdlib.h>
+﻿#include "PrimeLib.h"
+#include <stdlib.h>
 #include <math.h>
-#include <stdbool.h>
-#include "PrimeLib.h"
+#include <string.h>
 
-static PrimeError validate_positive(int n, const char* op) {
-    if (n < 0) return ERR_NEGATIVE;
-    if (n > MAX_VAL) return ERR_TOO_LARGE;
-    return PRIME_OK;
-}
+#define MAX_VAL UINT64_MAX
 
-static int power_mod(int a, int b, int mod) {
-    int result = 1;
-    a %= mod;
-    while (b > 0) {
-        if (b % 2 == 1)
-            result = (result * a) % mod;
-        a = (a * a) % mod;
-        b /= 2;
-    }
-    return result;
-}
+// Быстрая проверка на простоту
+__declspec(dllexport) bool is_prime(uint64_t n, PrimeError* err) {
+    if (n > MAX_VAL) { *err = ERR_TOO_LARGE; return false; }
+    if (n <= 1) { *err = PRIME_OK; return false; }
+    if (n <= 3) { *err = PRIME_OK; return true; }
+    if (n % 2 == 0 || n % 3 == 0) { *err = PRIME_OK; return false; }
 
-void free_array(int* arr) {
-    if (arr) free(arr);
-}
-
-IntResult is_prime(int n) {
-    IntResult result = { 0, PRIME_OK };
-    result.error = validate_positive(n, "primality test");
-    if (result.error != PRIME_OK) return result;
-
-    if (n <= 1) {
-        result.result = 0;
-        return result;
-    }
-    if (n <= 3) {
-        result.result = 1;
-        return result;
-    }
-    if (n % 2 == 0 || n % 3 == 0) {
-        result.result = 0;
-        return result;
-    }
-    for (int i = 5; i * i <= n; i += 6) {
+    for (uint64_t i = 5; i * i <= n; i += 6) {
         if (n % i == 0 || n % (i + 2) == 0) {
-            result.result = 0;
-            return result;
+            *err = PRIME_OK;
+            return false;
         }
     }
-    result.result = 1;
-    return result;
+    *err = PRIME_OK;
+    return true;
 }
 
-IntResult gcd(int a, int b) {
-    IntResult result = { 0, PRIME_OK };
-    result.error = validate_positive(a, "GCD");
-    if (result.error == PRIME_OK) result.error = validate_positive(b, "GCD");
-    if (result.error != PRIME_OK) return result;
+// Бинарный алгоритм GCD
+__declspec(dllexport) uint64_t gcd(uint64_t a, uint64_t b, PrimeError* err) {
+    if (a == 0 || b == 0) { *err = ERR_INVALID_INPUT; return 0; }
 
-    while (b != 0) {
-        int temp = b;
-        b = a % b;
-        a = temp;
+    int shift = 0;
+    while (((a | b) & 1) == 0) {
+        a >>= 1;
+        b >>= 1;
+        shift++;
     }
-    result.result = a;
-    return result;
+
+    while ((a & 1) == 0) a >>= 1;
+
+    do {
+        while ((b & 1) == 0) b >>= 1;
+        if (a > b) { uint64_t t = b; b = a; a = t; }
+        b -= a;
+    } while (b != 0);
+
+    *err = PRIME_OK;
+    return a << shift;
 }
 
-IntResult lcm(int a, int b) {
-    IntResult result = { 0, PRIME_OK };
-    IntResult gcd_result = gcd(a, b);
-    if (gcd_result.error != PRIME_OK) {
-        result.error = gcd_result.error;
-        return result;
-    }
-    if (a == 0 || b == 0) {
-        result.result = 0;
-        return result;
-    }
-    result.result = (a / gcd_result.result) * b;
-    return result;
+// LCM через GCD
+__declspec(dllexport) uint64_t lcm(uint64_t a, uint64_t b, PrimeError* err) {
+    PrimeError tmp_err;
+    uint64_t g = gcd(a, b, &tmp_err);
+    if (tmp_err != PRIME_OK) { *err = tmp_err; return 0; }
+    if (a == 0 || b == 0) { *err = ERR_INVALID_INPUT; return 0; }
+    *err = PRIME_OK;
+    return (a / g) * b;
 }
 
-IntArrayResult sieve_of_eratosthenes(int limit) {
-    IntArrayResult result = { NULL, 0, PRIME_OK };
-    result.error = validate_positive(limit, "sieve");
-    if (result.error != PRIME_OK) return result;
+// Оптимизированное решето Эратосфена
+__declspec(dllexport) uint64_t* sieve_of_eratosthenes(uint64_t limit, uint64_t* count, PrimeError* err) {
+    if (limit > MAX_VAL) { *err = ERR_TOO_LARGE; return NULL; }
+    if (limit < 2) { *count = 0; *err = PRIME_OK; return NULL; }
 
-    if (limit < 2) return result;
+    bool* sieve = calloc(limit + 1, sizeof(bool));
+    if (!sieve) { *err = ERR_ALLOCATION_FAILED; return NULL; }
 
-    bool* sieve = (bool*)calloc(limit + 1, sizeof(bool));
-    for (int i = 2; i * i <= limit; i++) {
+    for (uint64_t i = 2; i * i <= limit; i++) {
         if (!sieve[i]) {
-            for (int j = i * i; j <= limit; j += i)
+            for (uint64_t j = i * i; j <= limit; j += i)
                 sieve[j] = true;
         }
     }
 
-    int count = 0;
-    for (int i = 2; i <= limit; i++)
-        if (!sieve[i]) count++;
+    uint64_t cnt = 0;
+    for (uint64_t i = 2; i <= limit; i++)
+        if (!sieve[i]) cnt++;
 
-    int* primes = (int*)malloc(count * sizeof(int));
-    for (int i = 2, j = 0; i <= limit; i++) {
+    uint64_t* primes = malloc(cnt * sizeof(uint64_t));
+    if (!primes) { free(sieve); *err = ERR_ALLOCATION_FAILED; return NULL; }
+
+    for (uint64_t i = 2, j = 0; i <= limit; i++) {
         if (!sieve[i]) primes[j++] = i;
     }
 
     free(sieve);
-    result.data = primes;
-    result.length = count;
-    return result;
+    *count = cnt;
+    *err = PRIME_OK;
+    return primes;
 }
 
-IntArrayResult goldbach_conjecture(int n) {
-    IntArrayResult result = { NULL, 0, PRIME_OK };
-    result.error = validate_positive(n, "Goldbach");
-    if (n <= 2 || n % 2 != 0) result.error = ERR_INVALID_INPUT;
-    if (result.error != PRIME_OK) return result;
+// Гипотеза Гольдбаха
+__declspec(dllexport) uint64_t* goldbach_conjecture(uint64_t n, uint64_t* count, PrimeError* err) {
+    if (n % 2 != 0 || n <= 2) { *err = ERR_INVALID_INPUT; return NULL; }
 
-    IntArrayResult sieve_result = sieve_of_eratosthenes(n);
-    if (sieve_result.error != PRIME_OK) {
-        result.error = sieve_result.error;
-        return result;
-    }
+    PrimeError tmp_err;
+    uint64_t sieve_cnt;
+    uint64_t* primes = sieve_of_eratosthenes(n, &sieve_cnt, &tmp_err);
+    if (tmp_err != PRIME_OK) { *err = tmp_err; return NULL; }
 
-    for (int i = 0; i < sieve_result.length; i++) {
-        int p = sieve_result.data[i];
-        IntResult is_prime_result = is_prime(n - p);
-        if (is_prime_result.result) {
-            int* pair = (int*)malloc(2 * sizeof(int));
-            pair[0] = p;
-            pair[1] = n - p;
-            result.data = pair;
-            result.length = 2;
-            free_array(sieve_result.data);
-            return result;
+    for (uint64_t i = 0; i < sieve_cnt; i++) {
+        bool is_p = is_prime(n - primes[i], &tmp_err);
+        if (tmp_err != PRIME_OK) { free(primes); *err = tmp_err; return NULL; }
+        if (is_p) {
+            uint64_t* pair = malloc(2 * sizeof(uint64_t));
+            if (!pair) {
+                free(primes);
+                *err = ERR_ALLOCATION_FAILED;
+                return NULL;
+            }
+            pair[0] = primes[i];
+            pair[1] = n - primes[i];
+            free(primes);
+            *count = 2;
+            *err = PRIME_OK;
+            return pair;
         }
     }
 
-    free_array(sieve_result.data);
-    return result;
+    free(primes);
+    *err = ERR_NO_SOLUTION;
+    return NULL;
 }
 
-IntArrayResult prime_factors(int n) {
-    IntArrayResult result = { NULL, 0, PRIME_OK };
-    result.error = validate_positive(n, "prime factorization");
-    if (n == 0) result.error = ERR_INVALID_INPUT;
-    if (result.error != PRIME_OK) return result;
+// Факторизация
+__declspec(dllexport) uint64_t* prime_factors(uint64_t n, uint64_t* count, PrimeError* err) {
+    if (n == 0) { *err = ERR_INVALID_INPUT; return NULL; }
 
-    int* factors = (int*)malloc(20 * sizeof(int));
-    int count = 0;
-    int divisors[] = { 2, 3 };
+    uint64_t* factors = malloc(64 * sizeof(uint64_t));
+    if (!factors) { *err = ERR_ALLOCATION_FAILED; return NULL; }
+
+    uint64_t idx = 0;
+    uint64_t divisors[] = { 2, 3 };
 
     for (int i = 0; i < 2; i++) {
         while (n % divisors[i] == 0) {
-            factors[count++] = divisors[i];
+            factors[idx++] = divisors[i];
             n /= divisors[i];
         }
     }
 
-    int i = 5;
-    int w = 2;
+    uint64_t i = 5;
+    uint64_t w = 2;
     while (i * i <= n) {
         while (n % i == 0) {
-            if (count % 20 == 19)
-                factors = (int*)realloc(factors, (count + 20) * sizeof(int));
-            factors[count++] = i;
+            if (idx >= 64) {
+                uint64_t* new_factors = realloc(factors, (idx + 64) * sizeof(uint64_t));
+                if (!new_factors) {
+                    free(factors);
+                    *err = ERR_ALLOCATION_FAILED;
+                    return NULL;
+                }
+                factors = new_factors;
+            }
+            factors[idx++] = i;
             n /= i;
         }
         i += w;
@@ -173,40 +158,61 @@ IntArrayResult prime_factors(int n) {
     }
 
     if (n > 1) {
-        if (count % 20 == 19)
-            factors = (int*)realloc(factors, (count + 1) * sizeof(int));
-        factors[count++] = n;
+        if (idx >= 64) {
+            uint64_t* new_factors = realloc(factors, (idx + 1) * sizeof(uint64_t));
+            if (!new_factors) {
+                free(factors);
+                *err = ERR_ALLOCATION_FAILED;
+                return NULL;
+            }
+            factors = new_factors;
+        }
+        factors[idx++] = n;
     }
 
-    result.data = (int*)realloc(factors, count * sizeof(int));
-    result.length = count;
-    return result;
+    *count = idx;
+    *err = PRIME_OK;
+    return factors;
 }
 
-IntResult prime_count(int n) {
-    IntResult result = { 0, PRIME_OK };
-    IntArrayResult sieve_result = sieve_of_eratosthenes(n);
-    result.error = sieve_result.error;
-    result.result = sieve_result.length;
-    free_array(sieve_result.data);
-    return result;
+// Подсчет простых чисел
+__declspec(dllexport) uint64_t prime_count(uint64_t n, PrimeError* err) {
+    uint64_t count;
+    uint64_t* primes = sieve_of_eratosthenes(n, &count, err);
+    if (*err != PRIME_OK) return 0;
+    free(primes);
+    return count;
 }
 
-IntResult ferma_test(int n) {
-    IntResult result = { 0, PRIME_OK };
-    result.error = validate_positive(n, "ferma test");
-    if (n <= 1) {
-        result.result = 0;
-        return result;
-    }
+// Тест Ферма
+__declspec(dllexport) bool ferma_test(uint64_t n, PrimeError* err) {
+    if (n <= 1) { *err = ERR_INVALID_INPUT; return false; }
+    const uint64_t bases[] = { 2, 3, 5, 7 };
 
-    int bases[] = { 2, 3, 5, 7 };
     for (int i = 0; i < 4; i++) {
-        if (power_mod(bases[i], n - 1, n) != 1) {
-            result.result = 0;
-            return result;
+        uint64_t a = bases[i];
+        uint64_t result = 1;
+        uint64_t exp = n - 1;
+        a %= n;
+
+        while (exp > 0) {
+            if (exp % 2 == 1)
+                result = (result * a) % n;
+            a = (a * a) % n;
+            exp >>= 1;
+        }
+
+        if (result != 1) {
+            *err = PRIME_OK;
+            return false;
         }
     }
-    result.result = 1;
-    return result;
+
+    *err = PRIME_OK;
+    return true;
+}
+
+// Освобождение памяти
+__declspec(dllexport) void free_array(uint64_t* arr) {
+    free(arr);
 }
